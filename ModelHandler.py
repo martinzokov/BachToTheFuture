@@ -9,21 +9,20 @@ import numpy as np
 
 class Model(object):
 
-    def __init__(self, neurons, dropout, learning_rate, optmizer):
+    def __init__(self, neurons, dropout, learning_rate=0.001, optimizer='adam', desired_loss=0.3):
         self.neurons = neurons
         self.dropout = dropout
         self.learning_rate = learning_rate
-        self.optimizer = optmizer
+        self.optimizer = optimizer
         self.optimizer_obj = None
+        self.desired_loss = desired_loss
+        self.ONE_HOT_VECTOR_LENGTH = 129
 
         self.model = self.create_model()
 
-    def create_model(self):
-        pass  # implementation in subclasses
-
     def train_model(self, training_data, epochs, save_weigths=False, save_file='weights.hdf5'):
         print len(training_data)
-        stop_callback = EarlyStoppingSpecificValue(monitor='loss', desired_val=0.3)
+        stop_callback = EarlyStoppingSpecificValue(monitor='loss', desired_val=self.desired_loss)
         for i, sample in enumerate(training_data):
             print i+1, " out of ", len(training_data)
             self.model.fit(sample[0], sample[1], nb_epoch=epochs, callbacks=[stop_callback])
@@ -36,12 +35,6 @@ class Model(object):
 
     def generate(self, input_sequence):
         return self.model.predict(input_sequence)
-
-
-class OneHotModel(Model):
-    def __init__(self, neurons, dropout, learning_rate, optmizer):
-        self.ONE_HOT_VECTOR_LENGTH = 129
-        super(OneHotModel, self).__init__(neurons, dropout, learning_rate, optmizer)
 
     def create_model(self):
         model = Sequential()
@@ -58,33 +51,6 @@ class OneHotModel(Model):
 
         model.compile(loss='categorical_crossentropy', optimizer=self.optimizer_obj)
         return model
-
-
-class RawRepresentationModel(Model):
-    def __init__(self, neurons, dropout):
-        super(RawRepresentationModel, self).__init__(neurons, dropout)
-
-    def create_model(self):
-        model = Sequential()
-        model.add(LSTM(input_dim=1, output_dim=self.neurons, return_sequences=True))
-        model.add(Dropout(self.dropout))
-        model.add(LSTM(input_dim=self.neurons, output_dim=self.neurons, return_sequences=False))
-        model.add(Dropout(self.dropout))
-        model.add(Dense(1))
-
-        model.compile(loss='mse', optimizer='rmsprop')
-        return model
-
-
-class ModelFactory(object):
-    def create_model(handler_type, neurons, dropout, learning_rate=0.001, optmizer='adam'):
-        if handler_type == "one_hot":
-            return OneHotModel(neurons, dropout, learning_rate, optmizer)
-        if handler_type == "raw_representation":
-            return RawRepresentationModel(neurons, dropout)
-        assert 0, "Bad model creation: " + handler_type
-
-    create_model = staticmethod(create_model)
 
 
 class EarlyStoppingSpecificValue(EarlyStopping):
