@@ -1,20 +1,19 @@
 import uuid
 from fractions import Fraction
 from itertools import groupby
-
 from music21 import converter
 from music21.chord import Chord
 from music21.note import Rest, GeneralNote, Note
 import music21.midi.translate as m21_translate
 import numpy as np
-import time
 from music21.stream import Stream
 
 
 class DataHandler(object):
     def __init__(self, t_steps, t_step_length):
-        self.t_steps = t_steps
-        self.t_step_length = t_step_length
+        self.T_STEPS = t_steps
+        self.T_STEP_LENGTH = t_step_length
+        self.ONE_HOT_VECTOR_LENGTH = 129
 
     def get_midi_representation(self, note):
         if isinstance(note, Rest):
@@ -33,7 +32,7 @@ class DataHandler(object):
         return note_objects
 
     def pad_steps(self, steps_array):
-        for step in range(0, self.t_steps - len(steps_array)):
+        for step in range(0, self.T_STEPS - len(steps_array)):
             steps_array.append([128])
 
     def get_note_duration(self, note):
@@ -51,10 +50,10 @@ class DataHandler(object):
 
             duration = self.get_note_duration(note)
 
-            if duration < self.t_step_length:
+            if duration < self.T_STEP_LENGTH:
                 steps = 1
             else:
-                steps = int(duration / self.t_step_length)
+                steps = int(duration / self.T_STEP_LENGTH)
 
             temp_note = [self.get_midi_representation(note)]
             for num_steps in range(steps):
@@ -74,12 +73,6 @@ class DataHandler(object):
         one_hot[0, 0, int_note] = 1
         return one_hot
 
-    def get_np_notes(self, midi_file):
-        pass  # implemented in subclasses
-
-    def get_notes_from_sequence(self, notes_np):
-        pass  # implemented in subclasses
-
     def count_note_events(self, sequence):
         return [(k, sum(1 for i in g)) for k, g in groupby(sequence)]
 
@@ -98,33 +91,26 @@ class DataHandler(object):
         midi_data.open('generated/' + str(uuid.uuid4()) + '.midi', attrib='wb')
         midi_data.write()
 
-class OneHotDataHandler(DataHandler):
-    """ A data handler for One-Hot encoding """
-
-    def __init__(self, t_steps, t_step_length):
-        super(OneHotDataHandler, self).__init__(t_steps, t_step_length)
-        self.ONE_HOT_VECTOR_LENGTH = 129
-
     def parse_midi_stream(self, file_name):
         note_list_arr = self.get_note_rep_array(file_name, one_hot=True)
         notes_input = []
         notes_output = []
-        for t in range(0, len(note_list_arr) - self.t_steps, 1):
-            notes_input.append(note_list_arr[t:t + self.t_steps])
-            notes_output.append(note_list_arr[t + self.t_steps])
+        for t in range(0, len(note_list_arr) - self.T_STEPS, 1):
+            notes_input.append(note_list_arr[t:t + self.T_STEPS])
+            notes_output.append(note_list_arr[t + self.T_STEPS])
 
         return notes_input, notes_output
 
     def get_np_notes2(self, midi_file):
         notes_input, notes_output = self.parse_midi_stream(midi_file)
         num_samples = 50
-        np_notes_in = np.zeros((num_samples, self.t_steps, self.ONE_HOT_VECTOR_LENGTH), dtype=np.int32)
+        np_notes_in = np.zeros((num_samples, self.T_STEPS, self.ONE_HOT_VECTOR_LENGTH), dtype=np.int32)
         np_notes_out = np.zeros((num_samples, self.ONE_HOT_VECTOR_LENGTH), dtype=np.int32)
         samples_list = []
         for j in range(len(notes_input)/num_samples):
 
             for i in range(num_samples):
-                if len(notes_input[i]) < self.t_steps:
+                if len(notes_input[i]) < self.T_STEPS:
                     self.pad_steps(notes_input[i])
                 np_notes_in[i] = notes_input[(num_samples*j) + i]
                 np_notes_out[i] = notes_output[(num_samples*j) + i]
@@ -134,11 +120,11 @@ class OneHotDataHandler(DataHandler):
 
     def get_np_notes(self, midi_file):
         notes_input, notes_output = self.parse_midi_stream(midi_file)
-        np_notes_in = np.zeros((len(notes_input), self.t_steps, self.ONE_HOT_VECTOR_LENGTH), dtype=np.int32)
+        np_notes_in = np.zeros((len(notes_input), self.T_STEPS, self.ONE_HOT_VECTOR_LENGTH), dtype=np.int32)
         np_notes_out = np.zeros((len(notes_output), self.ONE_HOT_VECTOR_LENGTH), dtype=np.int32)
 
         for i in range(len(notes_input)):
-            if len(notes_input[i]) < self.t_steps:
+            if len(notes_input[i]) < self.T_STEPS:
                 self.pad_steps(notes_input[i])
             np_notes_in[i] = notes_input[i]
             np_notes_out[i] = notes_output[i]
@@ -152,9 +138,9 @@ class OneHotDataHandler(DataHandler):
 
         for pair in notes:
             if pair[0] == 128:
-                note_objects.append(Rest(quarterLength=pair[1] * self.t_step_length))
+                note_objects.append(Rest(quarterLength=pair[1] * self.T_STEP_LENGTH))
             else:
-                note_objects.append(Note(pair[0], quarterLength=pair[1] * self.t_step_length))
+                note_objects.append(Note(pair[0], quarterLength=pair[1] * self.T_STEP_LENGTH))
 
         return note_objects
 
@@ -164,76 +150,3 @@ class OneHotDataHandler(DataHandler):
             np_notes_in = np.append(np_notes_in, self.to_onehot(note), axis=1)
         return np_notes_in
 
-
-
-class RawDataHandler(DataHandler):
-    """ A data handler for raw value parsing """
-    def __init__(self, t_steps, t_step_length):
-        super(RawDataHandler, self).__init__(t_steps, t_step_length)
-
-    def parse_midi_stream(self, file_name):
-        note_list_arr = self.get_note_rep_array(file_name, one_hot=False)
-        notes_input = []
-        notes_output = []
-        expected_output = self.shift_for_training(note_list_arr, 1)
-
-        for t in range(0, len(note_list_arr) - self.t_steps, 1):
-            notes_input.append(note_list_arr[t:t + self.t_steps])
-            notes_output.append(expected_output[t + self.t_steps])
-
-        # return note_list_arr, expected_output
-        return notes_input, notes_output
-
-    def shift_for_training(self, sequence, shift_amount):
-        return sequence[shift_amount:] + sequence[:shift_amount]
-
-    def get_np_notes(self, midi_file, mode=1):
-        if mode == 1:
-            notes_input, notes_output = self.parse_midi_stream(midi_file)
-            np_notes_in = np.zeros((1, len(notes_input), 1), dtype=np.int32)
-            np_notes_out = np.zeros((1, len(notes_output), 1), dtype=np.int32)
-            for i in range(len(notes_input)):
-                np_notes_in[0, i] = notes_input[i]
-                np_notes_out[0, i] = notes_output[i]
-        if mode == 2:
-            notes_input, notes_output = self.parse_midi_stream(midi_file)
-            np_notes_in = np.zeros((len(notes_input), self.t_steps, 1), dtype=np.int32)
-            np_notes_out = np.zeros((len(notes_output), 1), dtype=np.int32)
-
-            for i in range(len(notes_input)):
-                if len(notes_input[i]) < self.t_steps:
-                    self.pad_steps(notes_input[i])
-                np_notes_in[i] = notes_input[i]
-                np_notes_out[i] = notes_output[i]
-        return np_notes_in, np_notes_out
-
-    def flatten_3d_to_2d(self, numpy_3d):
-        return numpy_3d.reshape((len(numpy_3d) * len(numpy_3d[0]), 1))
-
-    def get_notes_from_sequence(self, notes_np):
-        note_objects = []
-        #flat = np.ceil(self.flatten_3d_to_2d(notes_np))
-        notes = self.count_note_events(notes_np)
-
-        for pair in notes:
-            if pair[0] > 100:
-                note_objects.append(Rest(quarterLength=pair[1] * self.t_step_length))
-            else:
-                note_objects.append(Note(pair[0], quarterLength=pair[1] * self.t_step_length))
-
-        return note_objects
-
-    def sequence_to_3d(self, note_sequence):
-        np_notes_in = np.asarray(note_sequence).reshape((1, len(note_sequence), 1))
-        return np_notes_in
-
-
-class DataHandlerFactory(object):
-    def create_handler(handler_type, t_steps, t_step_length):
-        if handler_type == "one_hot":
-            return OneHotDataHandler(t_steps, t_step_length)
-        if handler_type == "raw":
-            return RawDataHandler(t_steps, t_step_length)
-        assert 0, "Bad handler creation: " + handler_type
-
-    create_handler = staticmethod(create_handler)

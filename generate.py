@@ -1,13 +1,13 @@
 import random
 
-from ModelHandler import ModelFactory
-from DataHandler import DataHandlerFactory
+from ModelHandler import Model
+from DataHandler import DataHandler
 import numpy as np
 
-data_handler = DataHandlerFactory.create_handler("one_hot", t_steps=5, t_step_length=0.25)
-model = ModelFactory.create_model("one_hot", neurons=100, dropout=0.4)
+data_handler = DataHandler(t_steps=5, t_step_length=0.25)
+model = Model(neurons=100, dropout=0.4)
 
-model.load_weights('100n_0.3do_0.002lr_1600epo_15samps_adam.hdf5')
+model.load_weights('100n_0.3do_0.0025lr_1600epo_7samps_adam.hdf5')
 
 
 def sample(a, temperature=1.0):
