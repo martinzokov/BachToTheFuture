@@ -9,7 +9,7 @@ import numpy as np
 
 class Model(object):
 
-    def __init__(self, neurons, dropout, learning_rate=0.001, optimizer='adam', desired_loss=0.3):
+    def __init__(self, neurons=100, dropout=0.3, learning_rate=0.001, optimizer='adam', desired_loss=0.3):
         self.neurons = neurons
         self.dropout = dropout
         self.learning_rate = learning_rate
