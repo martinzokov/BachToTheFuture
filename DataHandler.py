@@ -1,3 +1,4 @@
+import ConfigParser
 import uuid
 from fractions import Fraction
 from itertools import groupby
@@ -5,12 +6,13 @@ from music21 import converter
 from music21.chord import Chord
 from music21.note import Rest, GeneralNote, Note
 import music21.midi.translate as m21_translate
+import music21.scale as scale
 import numpy as np
 from music21.stream import Stream
 
 
 class DataHandler(object):
-    def __init__(self, t_steps, t_step_length):
+    def __init__(self, t_steps=4, t_step_length=0.25):
         self.T_STEPS = t_steps
         self.T_STEP_LENGTH = t_step_length
         self.ONE_HOT_VECTOR_LENGTH = 129
@@ -84,11 +86,35 @@ class DataHandler(object):
         return stream
 
     def get_seed(self):
-        pass  # better seed options
+        settings = DataHandler.get_config_params()
+        seed = []
+        mode = settings["seed_mode"]
+        if mode == 'from_existing':
+            seed_source = self.get_note_rep_array(settings["data_dir"] + settings["seed_source"], False)
+            for i in range(settings["seed_size"]):
+                seed.append(seed_source[i][0])
+        if mode == 'from_scale':
+            seed_scale = settings["seed_scale"]
+            if seed_scale == 'major':
+                sc = scale.MajorScale()
+                seed = self.get_notes_from_scale(scale_obj=sc, length=settings["seed_size"])
+            if seed_scale == 'minor':
+                sc = scale.MinorScale()
+                seed = self.get_notes_from_scale(scale_obj=sc, length=settings["seed_size"])
+            if seed_scale == 'harmonic_minor':
+                sc = scale.HarmonicMinorScale()
+                seed = self.get_notes_from_scale(scale_obj=sc, length=settings["seed_size"])
+        return seed
 
-    def save_to_midi(self, stream):
+    def get_notes_from_scale(self, scale_obj, length):
+        seed_arr = []
+        for note in scale_obj.pitches:
+            seed_arr.append(note.midi)
+        return np.random.choice(a=seed_arr, size=length).tolist()
+
+    def save_to_midi(self, stream, location='generated/'):
         midi_data = m21_translate.streamToMidiFile(self.create_note_stream(stream))
-        midi_data.open('generated/' + str(uuid.uuid4()) + '.midi', attrib='wb')
+        midi_data.open(location + str(uuid.uuid4()) + '.mid', attrib='wb')
         midi_data.write()
 
     def parse_midi_stream(self, file_name):
@@ -149,4 +175,39 @@ class DataHandler(object):
         for note in note_sequence:
             np_notes_in = np.append(np_notes_in, self.to_onehot(note), axis=1)
         return np_notes_in
+
+    def get_config_params():
+        config = ConfigParser.ConfigParser()
+        config.read('config.ini')
+
+        settings = {}
+        settings["data_dir"] = config.get("training", "data_dir") or "./"
+
+        settings["t_steps"] = int(config.get("training", "t_steps")) or 4
+        settings["t_step_length"] = float(config.get("training", "t_step_length")) or 0.25
+
+        settings["neurons"] = int(config.get("training", "neurons")) or 100
+        settings["epochs"] = int(config.get("training", "epochs")) or 1500
+        settings["dropout"] = float(config.get("training", "dropout")) or 0.3
+        settings["learning_rate"] = float(config.get("training", "learning_rate")) or 0.001
+        settings["optimizer"] = config.get("training", "optimizer") or 'adam'
+
+        if settings["data_dir"][-1] != '/':
+            settings["data_dir"] += '/'
+
+        # generation settings
+        settings["save_dir"] = config.get("generating", "save_dir") or "./"
+
+        settings["seed_mode"] = config.get("generating", "seed_mode") or "from_existing"
+        settings["seed_source"] = config.get("generating", "seed_source") or ""
+        settings["gen_length"] = int(config.get("generating", "gen_length")) or 250
+        settings["seed_size"] = int(config.get("generating", "seed_size")) or 4
+        settings["seed_scale"] = config.get("generating", "seed_scale") or 'major'
+
+        if settings["save_dir"][-1] != '/':
+            settings["save_dir"] += '/'
+
+        return settings
+
+    get_config_params = staticmethod(get_config_params)
 
