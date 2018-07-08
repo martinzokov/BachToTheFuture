@@ -9,7 +9,7 @@ from the DataHandler object and starts th generation process.
 settings = DataHandler.get_config_params()
 data_handler = DataHandler()
 
-print 'Building model'
+print('Building model')
 neurons = settings["neurons"]
 dropout = settings["dropout"]
 l_rate = settings["learning_rate"]
@@ -17,7 +17,7 @@ epochs = settings["epochs"]
 optimizer = settings["optimizer"]
 model = Model(neurons=neurons, dropout=dropout, learning_rate=l_rate, optimizer=optimizer, desired_loss=0.3)
 
-print 'Loading weights'
+print('Loading weights')
 data_handler.get_weights(model, settings)
 
 
@@ -35,14 +35,14 @@ def sample(prob_distribution, temperature=1.0):
     prob_distribution = np.exp(prob_distribution) / np.sum(np.exp(prob_distribution))
     return np.argmax(np.random.multinomial(1, prob_distribution, 1))
 
-print 'Generating'
+print('Generating')
 generated = data_handler.get_seed()
-print generated
+print(generated)
 for i in range(0, settings["gen_length"]):
     # next_note = model.generate(data_handler.sequence_to_one_hot(generated[i-5:i-1]))
     next_note = model.generate(data_handler.sequence_to_one_hot(generated))
     temp = np.random.uniform(0.5, 1.5)
     generated.append(sample(next_note, temp))
-print generated
+print(generated)
 
 data_handler.save_to_midi(generated, settings["save_dir"])

@@ -1,4 +1,4 @@
-import ConfigParser
+import configparser
 import os
 import uuid
 from fractions import Fraction
@@ -296,7 +296,7 @@ class DataHandler(object):
         if settings["weights_mode"] == 'random':
             weights = os.listdir(settings["weights_dir"])
             if len(weights) == 0:
-                print "No weights files in "+settings["weights_dir"]
+                print("No weights files in "+settings["weights_dir"])
                 sys.exit()
             weight_index = np.random.randint(0, len(weights)-1)
             model.load_weights(settings["weights_dir"]+weights[weight_index])
@@ -310,7 +310,7 @@ class DataHandler(object):
 
         :return: a dictionary of key:value pairs with settings.
         """
-        config = ConfigParser.ConfigParser()
+        config = configparser.ConfigParser()
         config.read('config.ini')
 
         settings = {}

@@ -4,7 +4,7 @@ import warnings
 from keras.callbacks import EarlyStopping, Callback
 from keras.optimizers import RMSprop, Adam
 from keras.layers import LSTM, Dropout, Dense, Activation
-from keras.models import Sequential
+from keras.models import Sequential, load_model, model_from_json
 import numpy as np
 
 
@@ -33,7 +33,7 @@ class Model(object):
 
         self.model = self.create_model()
 
-    def train_model(self, training_data, epochs, save_weigths=False, save_file='weights.hdf5'):
+    def train_model(self, training_data, epochs, save_weigths=False, save_file='weights.h5'):
         """
         Uses the created model and training_data to optimize the weights.
 
@@ -43,18 +43,18 @@ class Model(object):
         :param save_weigths: determines if the trained model's weights will be saved
         :param save_file: if save_weights is True, weights are saved in this file.
         """
-        print len(training_data)
+        print(len(training_data))
         stop_callback = EarlyStoppingSpecificValue(monitor='loss', desired_val=self.desired_loss)
         loss_history = LossHistory()
         for i, sample in enumerate(training_data):
-            print i+1, " out of ", len(training_data)
-            self.model.fit(sample[0], sample[1], nb_epoch=epochs, callbacks=[stop_callback, loss_history])
+            print(i+1, " out of ", len(training_data))
+            self.model.fit(sample[0], sample[1], epochs=epochs, callbacks=[loss_history])
             if save_weigths:
-                self.model.save_weights(save_file, overwrite=True)
+                self.model.save_weights(save_file)
         loss_file = open('loss_history.csv', 'wb')
         loss_file.write(','.join([str(elem) for elem in loss_history.losses]))
 
-    def load_weights(self, save_file='weights.hdf5'):
+    def load_weights(self, save_file='weights.h5'):
         """
         Read from a file information about previously saved weights.
         :param save_file: name and path for the save file.
@@ -71,25 +71,25 @@ class Model(object):
         return self.model.predict(input_sequence)
 
     def create_model(self):
-        """
-        Creates a Keras Sequential() LSTM Model object with the parameters that were passed to this class' constructor.
+            """
+            Creates a Keras Sequential() LSTM Model object with the parameters that were passed to this class' constructor.
 
-        :return: a working LSTM model
-        """
-        model = Sequential()
-        model.add(LSTM(input_dim=self.ONE_HOT_VECTOR_LENGTH, output_dim=self.neurons, return_sequences=True))
-        model.add(Dropout(self.dropout))
-        model.add(LSTM(input_dim=self.neurons, output_dim=self.neurons, return_sequences=False))
-        model.add(Dropout(self.dropout))
-        model.add(Dense(self.ONE_HOT_VECTOR_LENGTH))
-        model.add(Activation('softmax'))
-        if self.optimizer == 'adam':
-            self.optimizer_obj = Adam(lr=self.learning_rate)
-        if self.optimizer == 'rmsprop':
-            self.optimizer_obj = RMSprop(lr=self.learning_rate)
+            :return: a working LSTM model
+            """
+            model = Sequential()
+            model.add(LSTM(self.ONE_HOT_VECTOR_LENGTH, return_sequences=True))
+            model.add(Dropout(self.dropout))
+            model.add(LSTM(self.neurons, return_sequences=False))
+            model.add(Dropout(self.dropout))
+            model.add(Dense(self.ONE_HOT_VECTOR_LENGTH))
+            model.add(Activation('softmax'))
+            if self.optimizer == 'adam':
+                self.optimizer_obj = Adam(lr=self.learning_rate)
+            if self.optimizer == 'rmsprop':
+                self.optimizer_obj = RMSprop(lr=self.learning_rate)
 
-        model.compile(loss='categorical_crossentropy', optimizer=self.optimizer_obj)
-        return model
+            model.compile(loss='categorical_crossentropy', optimizer=self.optimizer_obj)
+            return model
 
 
 class EarlyStoppingSpecificValue(EarlyStopping):
