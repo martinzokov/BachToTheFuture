@@ -22,7 +22,7 @@ To train a network on music data we need to look at notes sequentially and defin
 
 After training the network to have weights based on a specific style, we need an input seed. Within the project there are 4 ways of getting a seed - custom sequence of MIDI notes, random or specific file from the training set or a random sequence of notes within a musical scale. From that seed, the network can generate n timesteps (configurable) with notes and those are written to an output MIDI file at the end. At each generation step, the network outputs a probability for each of the 129 dimensions based on the notes that came before. The probabilities are then sampled to provide an output in the form of a 1-of-n representation. 
 
-![Training sequence](https://imgur.com/FAHpr1W)
+![Training sequence](https://i.imgur.com/FAHpr1W.png)
 
 ### Oversimplifications and potential future improvements
 There are a few things that were deliberately oversimplified for this project. 
@@ -55,7 +55,9 @@ Here are some samples I've generated with this using different data sets from Ba
 
 Sample 1:
 [![Sample 1](https://img.youtube.com/vi/nigaxfN3v3w/0.jpg)](https://www.youtube.com/watch?v=nigaxfN3v3w)
+
 Sample 2:
 [![Sample 2](https://img.youtube.com/vi/nigaxfN3v3w/0.jpg)](https://www.youtube.com/watch?v=aHBQPFENRLQ)
+
 Sample 3:
 [![Sample 3](https://img.youtube.com/vi/nigaxfN3v3w/0.jpg)](https://www.youtube.com/watch?v=Bk0gf3U5K3c)
